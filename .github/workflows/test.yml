@@ -1,0 +1,40 @@
+name: Test — Compile & Endpoint Verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: sudo apt-get install -y g++ curl
+
+      - name: Compile C++ binary
+        run: g++ -O2 -std=c++17 -pthread -o vectordb main.cpp
+
+      - name: Start server in background
+        run: |
+          PORT=8099 ./vectordb &
+          sleep 5
+
+      - name: Test /health endpoint
+        run: curl -sf http://localhost:8099/health | grep -q '"status"'
+
+      - name: Test /stats endpoint
+        run: curl -sf http://localhost:8099/stats | grep -q '"count"'
+
+      - name: Test /items endpoint
+        run: curl -sf http://localhost:8099/items | grep -q '\['
+
+      - name: Test /hnsw-info endpoint
+        run: curl -sf http://localhost:8099/hnsw-info | grep -q '"nodeCount"'
+
+      - name: Kill server
+        if: always()
+        run: pkill vectordb || true

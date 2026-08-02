@@ -1,0 +1,38 @@
+name: CI — Build & Health Check
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t vectordb:ci .
+
+      - name: Start container
+        run: |
+          docker run -d --name ci_app \
+            -p 8080:8080 \
+            -e PORT=8080 \
+            -e OLLAMA_HOST=127.0.0.1 \
+            vectordb:ci
+          sleep 20
+
+      - name: Health check /health
+        run: curl -f http://localhost:8080/health || (docker logs ci_app && exit 1)
+
+      - name: Health check /ready
+        run: curl -f http://localhost:8080/ready || (docker logs ci_app && exit 1)
+
+      - name: Health check /stats
+        run: curl -f http://localhost:8080/stats || (docker logs ci_app && exit 1)
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f ci_app || true

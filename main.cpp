@@ -1,6 +1,7 @@
 #include "httplib.h"
 #include <iostream>
 #include <vector>
+#include <cstdlib>
 #include <string>
 #include <algorithm>
 #include <cmath>
@@ -766,7 +767,12 @@ void loadDemo(VectorDB& db) {
 int main() {
     VectorDB   db(DIMS);
     DocumentDB docDB;
-    OllamaClient ollama;
+
+    std::string o_host = "127.0.0.1";
+    int o_port = 11434;
+    if (const char* oh = std::getenv("OLLAMA_HOST")) o_host = oh;
+    if (const char* op = std::getenv("OLLAMA_PORT")) o_port = std::stoi(op);
+    OllamaClient ollama(o_host, o_port);
 
     loadDemo(db);
 
@@ -1064,6 +1070,32 @@ int main() {
         res.set_content(ss.str(), "application/json");
     });
 
+    // ── HEALTH / LIVENESS ENDPOINTS (required by Render, Docker, CI) ─────────
+    // Records server start time for uptime reporting
+    static const auto _startTime = std::chrono::steady_clock::now();
+
+    svr.Get("/health", [&](const httplib::Request&, httplib::Response& res) {
+        cors(res);
+        auto now = std::chrono::steady_clock::now();
+        double uptime = std::chrono::duration<double>(now - _startTime).count();
+        std::ostringstream ss;
+        ss << std::fixed << std::setprecision(2);
+        ss << "{\"status\":\"ok\",\"uptime\":" << uptime
+           << ",\"vectors\":" << db.size()
+           << ",\"docs\":" << docDB.size() << "}";
+        res.set_content(ss.str(), "application/json");
+    });
+
+    svr.Get("/ready", [](const httplib::Request&, httplib::Response& res) {
+        cors(res);
+        res.set_content("{\"status\":\"ready\"}", "application/json");
+    });
+
+    svr.Get("/live", [](const httplib::Request&, httplib::Response& res) {
+        cors(res);
+        res.set_content("{\"status\":\"alive\"}", "application/json");
+    });
+
     svr.Get("/stats", [&](const httplib::Request&, httplib::Response& res) {
         cors(res);
         std::ostringstream ss;
@@ -1084,6 +1116,8 @@ int main() {
             "text/html");
     });
 
-    svr.listen("0.0.0.0", 8080);
+    int port = 7860;
+    if (const char* p = std::getenv("PORT")) port = std::stoi(p);
+    svr.listen("0.0.0.0", port);
     return 0;
 }

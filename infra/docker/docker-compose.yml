@@ -1,0 +1,72 @@
+version: '3.9'
+
+services:
+
+  # ── Application (C++ VectorDB + httplib server) ──────────────────────────
+  app:
+    build:
+      context: ../../          # Points to project root where Dockerfile lives
+      dockerfile: Dockerfile
+    container_name: vectordb_app
+    restart: unless-stopped
+    environment:
+      - PORT=8080
+      - OLLAMA_HOST=ollama     # Resolves to the ollama service within Docker network
+      - OLLAMA_PORT=11434
+      - SENTRY_DSN=${SENTRY_DSN:-}
+    volumes:
+      - app_logs:/home/user/app/logs
+    depends_on:
+      - ollama
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── Ollama (Local LLM — nomic-embed-text + llama3.2) ─────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: vectordb_ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama   # Persist downloaded model weights
+    ports:
+      - "11434:11434"               # Accessible at localhost:11434 on host too
+    networks:
+      - app_network
+    # Pull models on first start (runs once, cached in the volume after that)
+    entrypoint: >
+      sh -c "ollama serve &
+             sleep 5 &&
+             ollama pull nomic-embed-text &&
+             ollama pull llama3.2 &&
+             wait"
+
+  # ── Reverse Proxy (Nginx) ─────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: vectordb_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - nginx_certs:/etc/nginx/certs
+    depends_on:
+      - app
+    networks:
+      - app_network
+
+volumes:
+  ollama_data:       # Persists Ollama model weights (~4GB for llama3.2)
+  app_logs:
+  nginx_certs:
+
+networks:
+  app_network:
+    driver: bridge

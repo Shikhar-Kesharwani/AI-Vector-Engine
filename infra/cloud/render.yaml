@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: ai-vector-engine
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 10000                     # Render's required port
+      - key: OLLAMA_HOST
+        sync: false                      # Set in Render dashboard → your external Ollama host
+      - key: OLLAMA_PORT
+        value: 11434
+      - key: SENTRY_DSN
+        sync: false
+    # Uncomment if you need persistent storage for SQLite / file data:
+    # disk:
+    #   name: app-data
+    #   mountPath: /data
+    #   sizeGB: 1
+    healthCheckPath: /health

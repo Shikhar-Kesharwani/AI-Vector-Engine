@@ -1,0 +1,40 @@
+# docker-compose.prod.yml — Production-hardened override
+# Usage: docker-compose -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.prod.yml up -d
+
+version: '3.9'
+
+services:
+  app:
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  ollama:
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 8G       # llama3.2 requires ~4GB; allow headroom
+        reservations:
+          memory: 4G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 64M

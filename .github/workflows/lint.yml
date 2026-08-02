@@ -1,0 +1,26 @@
+name: Lint — Code Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: C++ static analysis (cppcheck)
+        run: |
+          sudo apt-get install -y cppcheck
+          cppcheck --error-exitcode=1 --enable=warning,performance,portability \
+            --suppress=missingIncludeSystem \
+            main.cpp
+
+      - name: Check Dockerfile best practices (hadolint)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning

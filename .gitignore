@@ -1,18 +1,47 @@
-# Compiled binaries
-*.exe
+# ── Secrets (NEVER commit real values) ───────────────
+.env
+.env.*
+!.env.example
+infra/docker/.env
+
+# ── C++ build artifacts ───────────────────────────────
 *.o
+*.exe
 *.out
-a.out
-
-# Build directories
+db.exe
+vectordb
 build/
-bin/
+cmake-build-*/
 
-# IDE files
-.vscode/
-.idea/
-*.user
+# ── ML model weights (never commit large binaries) ────
+*.h5
+*.pkl
+*.pt
+*.pth
+*.onnx
+*.joblib
+*.bin
+*.safetensors
+models/
+weights/
+checkpoints/
 
-# OS files
+# ── Local databases and indexes ───────────────────────
+*.db
+*.sqlite
+*.sqlite3
+faiss_index*/
+chroma_db/
+*.index
+
+# ── OS and editors ────────────────────────────────────
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# ── Logs ──────────────────────────────────────────────
+*.log
+logs/
