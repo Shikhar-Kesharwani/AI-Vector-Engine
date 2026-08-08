@@ -10,6 +10,8 @@ services:
         sync: false                      # Set in Render dashboard → your external Ollama host
       - key: OLLAMA_PORT
         value: 11434
+      - key: GROQ_API_KEY
+        sync: false                      # Free Cloud AI: Get key at console.groq.com (no CC needed)
       - key: SENTRY_DSN
         sync: false
     # Uncomment if you need persistent storage for SQLite / file data:

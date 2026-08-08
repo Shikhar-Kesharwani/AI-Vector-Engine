@@ -605,11 +605,38 @@ public:
     OllamaClient(const std::string& h = "127.0.0.1", int p = 11434)
         : host(h), port(p) {}
 
+    std::string getGroqApiKey() {
+        const char* k = std::getenv("GROQ_API_KEY");
+        return k ? std::string(k) : "";
+    }
+
     bool isAvailable() {
+        if (!getGroqApiKey().empty()) {
+            genModel = "llama-3.1-8b-instant (Groq Cloud)";
+            return true;
+        }
         httplib::Client cli(host, port);
         cli.set_connection_timeout(2, 0);
         auto res = cli.Get("/api/tags");
         return res && res->status == 200;
+    }
+
+    std::vector<float> generateHashEmbedding(const std::string& text, int dims = 768) {
+        std::vector<float> vec(dims, 0.05f);
+        std::istringstream ss(text);
+        std::string word;
+        while (ss >> word) {
+            size_t h = std::hash<std::string>{}(word);
+            int idx = h % dims;
+            vec[idx] += 0.15f;
+            int idx2 = (h / dims) % dims;
+            vec[idx2] += 0.10f;
+        }
+        float norm = 0;
+        for (float f : vec) norm += f * f;
+        norm = std::sqrt(norm);
+        if (norm > 1e-6f) for (float& f : vec) f /= norm;
+        return vec;
     }
 
     // Returns empty vector if Ollama is not running or model not found
@@ -619,8 +646,52 @@ public:
         cli.set_read_timeout(30, 0);
         std::string body = "{\"model\":\"" + embedModel + "\",\"prompt\":\"" + esc(text) + "\"}";
         auto res = cli.Post("/api/embeddings", body, "application/json");
-        if (!res || res->status != 200) return {};
-        return parseEmbedding(res->body);
+        if (res && res->status == 200) {
+            auto emb = parseEmbedding(res->body);
+            if (!emb.empty()) return emb;
+        }
+        if (!getGroqApiKey().empty()) {
+            return generateHashEmbedding(text, 768);
+        }
+        return {};
+    }
+
+    std::string generateGroq(const std::string& prompt, const std::string& apiKey) {
+        std::string payload = "{\"model\":\"llama-3.1-8b-instant\",\"messages\":[{\"role\":\"user\",\"content\":\"" + esc(prompt) + "\"}]}";
+        std::string tmpFile = "groq_req.json";
+        std::ofstream out(tmpFile);
+        out << payload;
+        out.close();
+
+#ifdef _WIN32
+        std::string cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions -H \"Authorization: Bearer " + apiKey + "\" -H \"Content-Type: application/json\" -d @" + tmpFile;
+        FILE* pipe = _popen(cmd.c_str(), "r");
+#else
+        std::string cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions -H \"Authorization: Bearer " + apiKey + "\" -H \"Content-Type: application/json\" -d @" + tmpFile;
+        FILE* pipe = popen(cmd.c_str(), "r");
+#endif
+        if (!pipe) {
+            std::remove(tmpFile.c_str());
+            return "ERROR: Failed to execute curl for Groq API.";
+        }
+
+        char buffer[256];
+        std::string response;
+        while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
+            response += buffer;
+        }
+#ifdef _WIN32
+        _pclose(pipe);
+#else
+        pclose(pipe);
+#endif
+        std::remove(tmpFile.c_str());
+
+        size_t pos = response.find("\"content\"");
+        if (pos != std::string::npos) {
+            return extractStr(response.substr(pos), "content");
+        }
+        return "ERROR: Failed to parse Groq response.";
     }
 
     // Returns error string if Ollama is unavailable
@@ -632,9 +703,15 @@ public:
                            "\"prompt\":\"" + esc(prompt) + "\","
                            "\"stream\":false}";
         auto res = cli.Post("/api/generate", body, "application/json");
-        if (!res || res->status != 200)
-            return "ERROR: Ollama unavailable. Run: ollama serve";
-        return parseResponse(res->body);
+        if (res && res->status == 200) {
+            auto ans = parseResponse(res->body);
+            if (!ans.empty()) return ans;
+        }
+        std::string key = getGroqApiKey();
+        if (!key.empty()) {
+            return generateGroq(prompt, key);
+        }
+        return "ERROR: Ollama unavailable. Run: ollama serve";
     }
 };
 
