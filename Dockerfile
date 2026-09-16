@@ -44,3 +44,6 @@ ENV OLLAMA_HOST=127.0.0.1
 ENV OLLAMA_PORT=11434
 
 CMD ["./vectordb"]
+
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1

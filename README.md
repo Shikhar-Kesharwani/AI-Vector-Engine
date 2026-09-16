@@ -1,10 +1,10 @@
-# AI-Vector-Engine
+﻿# AI-Vector-Engine
 
 ![VectorDB Banner](https://img.shields.io/badge/AI-Vector_Engine-00F0FF?style=for-the-badge&logo=c%2B%2B&logoColor=white&labelColor=03030A)
 
 A highly optimized, custom-built Vector Database engine completely written in C++ from scratch, featuring an immersive Cyber-Neon Glassmorphic Web UI and seamless integrations with local LLMs via Ollama. 
 
-Built and maintained by [AyushGU12](https://github.com/AyushGU12).
+Built and maintained by [Shikhar-Kesharwani](https://github.com/Shikhar-Kesharwani).
 
 ## 🌟 Key Features
 
@@ -36,7 +36,7 @@ Clone the repository and compile the core database server using `g++`:
 
 ```bash
 # Clone the repository
-git clone https://github.com/AyushGU12/AI-Vector-Engine.git
+git clone https://github.com/Shikhar-Kesharwani/OWN_AI_BUILD.git
 cd AI-Vector-Engine
 
 # Compile using g++ with pthread support
